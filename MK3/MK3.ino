@@ -32,6 +32,9 @@ int ch3 = DEFAULT;
 int ch4 = DEFAULT;
 int ch5, ch6, ch7, ch8, ch9, ch10, ch11, ch12;
 
+// exponential factor for driving
+float kthr = 0.5; //throttle
+float kstr = 0.2; //steering
 // Smoothed values to reduce current draw and make operation smoother
 float thr_smoothed = 0;
 float str_smoothed = 0;
@@ -39,9 +42,9 @@ float servo_smoothed = 1350; // Start out looking straight forward
 float bat_smoothed = 11; // start at a nominal battery voltage
 
 // Smoothing alpha values
-float thr_alpha = 0.985;
-float str_alpha = 0.985;
-const float servo_alpha = 0.9; 
+float thr_alpha = 0.97;
+float str_alpha = 0.97;
+//const float servo_alpha = 0.9; 
 const float battery_alpha = 0.99;
 
 float thr, str;
@@ -61,14 +64,15 @@ bool headlights = 0;
 int brightness = 0;
 int brightness_val = 0;
 
+bool mode = 0;
 // holders for disconnect continuity of behavior
 int ch1holder = 0;
 int ch5holder = 0;
 int ch8holder = 0;
 
 // Region around neutral where the sticks don't give an output (no motion)
-const int deadzone_thr = 6;
-const int deadzone_str = 6;
+const int deadzone_thr = 2;
+const int deadzone_str = 2;
 
 int loop_timer = 0; // timer for main loop execution
 
@@ -140,15 +144,36 @@ void loop() {
   // Re-map all the rx into their useful ranges
 
   thr = constrain(map(ch3, LOW_VAL, HIGH_VAL, -100, 100), -100, 100); // throttle
-  str = constrain(map(ch4, LOW_VAL, HIGH_VAL, -100, 100), -100, 100); // steering 
+  str = constrain(map(ch4, LOW_VAL, HIGH_VAL, -70, 70), -70, 70); // steering 
 
-  // gimbal servo
-  //if(failSafe || lostFrame) servo = constrain(map(ch1holder, LOW_VAL, HIGH_VAL, 600, 2100), 650, 2050);
-  //else servo = constrain(map(ch1, LOW_VAL, HIGH_VAL, 600, 2100), 650, 2050);
+  mode = constrain(map(ch5, LOW_VAL, HIGH_VAL, -1, 3), 0, 1);
+  if(mode){
+    str_alpha = 0.95;
+  }
+  else
+    str_alpha = 0.99;
+  //thr = constrain(map(ch3, LOW_VAL, HIGH_VAL, -1, 1), -1, 1); // throttle
+  //str = constrain(map(ch4, LOW_VAL, HIGH_VAL, -1, 1), -1, 1); // steering 
+  //Serial.print("ch3: ");
+  //Serial.println(ch3);
+  //Serial.print(" ch4: ");
+  //Serial.println(ch4);
+  //Serial.print("Thr: ");
+  //Serial.println(thr);
+  //Serial.print("Str: ");
+  //Serial.println(str);
+  thr /= 100.0;
+  str /= 70.0;
+  thr = (thr * (1 + kthr*((thr * thr) -1))); // make exponential
+  str = (str * (1 + kstr*((str * str) -1)));
+  thr *= 100;
+  str *= 70;
+  thr = constrain(thr, -100, 100); // throttle
+  str = constrain(str, -70, 70); // steering
+
 
   // headlight toggle
   //if(failSafe || lostFrame)  headlights = constrain(map(ch5holder, LOW_VAL, HIGH_VAL, -1, 3), 0, 1); else
-  headlights = constrain(map(ch5, LOW_VAL, HIGH_VAL, -1, 3), 0, 2);
   brightness_val = constrain(map(ch7, LOW_VAL, HIGH_VAL,-2, 2), -1, 1);
   //cam_ctrl = constrain(map(ch10, LOW_VAL, HIGH_VAL, -1, 3), -1, 1); // camera controls
   //if(cam_ctrl == -1) cam_ctrl = 0;

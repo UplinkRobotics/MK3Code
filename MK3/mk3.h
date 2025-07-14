@@ -23,8 +23,8 @@
 #define CURRENTHIGH 3000 // current reading which going above signifies overcurrent
 #define OVERTIME 100 // time between overcurrent samples 
 
-#define LOW_VAL 172
-#define HIGH_VAL 1811
+#define LOW_VAL 272
+#define HIGH_VAL 1712
 #define GIMBAL_DEFAULT 991
 
 #define DEFAULT (HIGH_VAL + LOW_VAL)/2 // get the middle value
