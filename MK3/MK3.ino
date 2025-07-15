@@ -33,8 +33,16 @@ int ch4 = DEFAULT;
 int ch5, ch6, ch7, ch8, ch9, ch10, ch11, ch12;
 
 // exponential factor for driving
-float kthr = 0.5; //throttle
-float kstr = 0.2; //steering
+float k_thr = 0.5; //throttle
+float k_str = 0.2; //steering
+float k_str_scalar = 1.0;
+float k_str_base = k_str;
+
+float STR_MIN = -75;
+float STR_MAX = 75;
+float STR_MIN_BASE = STR_MIN;
+float STR_MAX_BASE = STR_MAX;
+
 // Smoothed values to reduce current draw and make operation smoother
 float thr_smoothed = 0;
 float str_smoothed = 0;
@@ -42,8 +50,14 @@ float servo_smoothed = 1350; // Start out looking straight forward
 float bat_smoothed = 11; // start at a nominal battery voltage
 
 // Smoothing alpha values
-float thr_alpha = 0.97;
-float str_alpha = 0.97;
+float thr_alpha_inc = 0.985;     // Alpha value when increasing throttle power i.e. moving stick away from center
+float thr_alpha_dec = 0.95;     // Alpha value when decreasing throttle power i.e. moving stick back towards center
+float thr_alpha = thr_alpha_inc;// Alpha value actually used - changed throughout code
+
+float str_alpha_inc = 0.95;     // Alpha value when increasing steering power i.e. moving stick away from center
+float str_alpha_dec = 0.92;     // Alpha value when decreasing steering power i.e. moving stick back towards center
+float str_alpha = str_alpha_inc;// Alpha value actually used - changed throughout code
+
 //const float servo_alpha = 0.9; 
 const float battery_alpha = 0.99;
 
@@ -64,7 +78,7 @@ bool headlights = 0;
 int brightness = 0;
 int brightness_val = 0;
 
-bool mode = 0;
+int mode = 0;
 // holders for disconnect continuity of behavior
 int ch1holder = 0;
 int ch5holder = 0;
@@ -85,6 +99,7 @@ int operating_mode = 0; // used to switch to Wifi mode
 // Setup function that runs once as the ESP starts up
 // ===================================================================================================
 void setup() {
+  setCpuFrequencyMhz(240); // Set to 240, 160, or 80 MHz
   // Setup the LED headlight/spotlight control, also in the motors library
   mot.ledc_init(LEDC_CHANNEL_0, LED_CH_1, 12, 15625);
   ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0); // headlights are off
@@ -99,7 +114,8 @@ void setup() {
   ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_5, 0); // headlights are off
   ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_5); // apply the duty cycle
 
-  Serial.begin(115200);     // debug info
+  Serial.begin(921600);     // debug info
+  Serial.flush();
 
   rxsr.begin(RXD2, TXD2, true, 100000); // optional parameters for ESP32: RX pin, TX pin, inverse mode, baudrate
   
@@ -144,33 +160,18 @@ void loop() {
   // Re-map all the rx into their useful ranges
 
   thr = constrain(map(ch3, LOW_VAL, HIGH_VAL, -100, 100), -100, 100); // throttle
-  str = constrain(map(ch4, LOW_VAL, HIGH_VAL, -70, 70), -70, 70); // steering 
+  str = constrain(map(ch4, LOW_VAL, HIGH_VAL, STR_MIN, STR_MAX), STR_MIN, STR_MAX); // steering 
 
-  mode = constrain(map(ch5, LOW_VAL, HIGH_VAL, -1, 3), 0, 1);
-  if(mode){
-    str_alpha = 0.95;
-  }
-  else
-    str_alpha = 0.99;
-  //thr = constrain(map(ch3, LOW_VAL, HIGH_VAL, -1, 1), -1, 1); // throttle
-  //str = constrain(map(ch4, LOW_VAL, HIGH_VAL, -1, 1), -1, 1); // steering 
-  //Serial.print("ch3: ");
-  //Serial.println(ch3);
-  //Serial.print(" ch4: ");
-  //Serial.println(ch4);
-  //Serial.print("Thr: ");
-  //Serial.println(thr);
-  //Serial.print("Str: ");
-  //Serial.println(str);
-  thr /= 100.0;
-  str /= 70.0;
-  thr = (thr * (1 + kthr*((thr * thr) -1))); // make exponential
-  str = (str * (1 + kstr*((str * str) -1)));
-  thr *= 100;
-  str *= 70;
-  thr = constrain(thr, -100, 100); // throttle
-  str = constrain(str, -70, 70); // steering
-
+  // mode = constrain(map(ch5, LOW_VAL, HIGH_VAL, -1, 3), 0, 2);
+  // if(mode == 0){ //switch up
+  //   str_alpha = 0.94;
+  // }
+  // else if( mode == 1){
+  //   str_alpha = 0.965;
+  // }
+  // else { // switch down
+  //   str_alpha = 0.99;
+  // }
 
   // headlight toggle
   //if(failSafe || lostFrame)  headlights = constrain(map(ch5holder, LOW_VAL, HIGH_VAL, -1, 3), 0, 1); else
@@ -184,11 +185,43 @@ void loop() {
   // operating mode switch for the WiFi mode
   //operating_mode = constrain(map(ch7, LOW_VAL, HIGH_VAL, -1, 3), 0, 2);   // switch at least three times quickly to go into wifi mode
 
+  // adaptively change the str exponential curve based on throttle input - make more linear at higher throttles
+  k_str_scalar = 1 - (abs(thr_smoothed)/100);
+  k_str = k_str_base * k_str_scalar;
+
+  // math for the exponential throttle curves
+  thr /= 100.0;
+  str /= STR_MAX;
+  thr = (thr * (1 + k_thr*((thr * thr) -1))); // make exponential
+  str = (str * (1 + k_str*((str * str) -1)));
+  thr *= 100;
+  str *= STR_MAX;
+  thr = constrain(thr, -100, 100); // throttle
+
+  // adapt the max steering based on the throttle - at higher throttles get more steering power
+  STR_MIN = constrain(map(abs(thr_smoothed), 0, 100, STR_MIN_BASE, -101), -100, 100);
+  STR_MAX = constrain(map(abs(thr_smoothed), 0, 100, STR_MAX_BASE, 101), -100, 100);
+  
+  str = constrain(str, STR_MIN, STR_MAX);   // steering
+
+  // code to change the alpha values based on what the throttle is doing
+  if ((abs(thr) - abs(thr_smoothed)) >= 0){ // throttle is increasing
+    thr_alpha = thr_alpha_inc;
+  }
+  else{                                     // throttle is decreasing
+    thr_alpha = thr_alpha_dec;
+  }
+
+  if ((abs(str) - abs(str_smoothed)) >= 0){ // steering is increasing
+    str_alpha = str_alpha_inc;
+  }
+  else{
+    str_alpha = str_alpha_dec;              // steering is decreasing
+  }
+
   // smooth out throttle, steering, and servo
   thr_smoothed = (thr_smoothed * thr_alpha) + (thr * (1 - thr_alpha));
   str_smoothed = (str_smoothed * str_alpha) + (str * (1 - str_alpha));
-
-  //servo_smoothed = (servo_smoothed * servo_alpha) + (servo * (1 - servo_alpha));
  
   // Calculate the voltage based on the analog value
   battery_voltage = (voltage_read / 319.5) + 1.6;
@@ -298,8 +331,12 @@ void loop() {
  
   // check loop timer, make sure the loop isnt taking way too long
   if(millis() < LOOP_TIME + loop_timer) while(millis() < LOOP_TIME + loop_timer);
+  // Serial.println(1000.0/(millis() - loop_timer));  // Print the frequency that the loop is running at
   loop_timer = millis(); // reset loop timer
 }
+
+/////////////////////////// END of LOOP ////////////////////////////////////////////////////////////////
+
 
 // Function to apply logarithmic lighting to the LEDs
 int log_lighting(int ch){
