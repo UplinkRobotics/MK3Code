@@ -3,17 +3,6 @@
 #include "Arduino.h"
 #include "driver/ledc.h"
 
-// Function to set the values in the led array
-// leds[8] = {orange, red, yellow, green, blue, red(rgb), green(rgb), blue(rgb)}
-// 1 = led on, 0 = led off
-//void ledarray_set(int leds[]){
-//  for (int i = 0; i < 8; i++){
-//    digitalWrite(LEDARRAY_CLK_IO, LOW);
-//    digitalWrite(LEDARRAY_DATA_IO, leds[i]);
-//    digitalWrite(LEDARRAY_CLK_IO, HIGH);
-//  }
-//}
-
 Motors::Motors() {
   // Motor driver pins set to OUTPUT
   pinMode(LEFT_MOT_DIR_IO, OUTPUT);

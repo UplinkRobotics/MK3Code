@@ -6,7 +6,7 @@
 /***************************************************************************************************/
 // WiFI variables
 #define DATA_ARRAY_SIZE 2048
-#define FW_VERSION  "1.0"
+#define FW_VERSION  "1.1"
 /***************************************************************************************************/
 
 // class to contain all of the wifi update functions and objects
