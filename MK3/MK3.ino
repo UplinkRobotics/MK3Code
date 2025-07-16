@@ -38,6 +38,8 @@ float k_str = 0.2; //steering
 float k_str_scalar = 1.0;
 float k_str_base = k_str;
 
+float THR_MIN = -100;
+float THR_MAX = 100;
 float STR_MIN = -75;
 float STR_MAX = 75;
 float STR_MIN_BASE = STR_MIN;
@@ -154,21 +156,68 @@ void loop() {
   // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   // Re-map all the rx into their useful ranges
 
-  thr = constrain(map(ch2, LOW_VAL, HIGH_VAL, -100, 100), -100, 100); // throttle
+  mode = constrain(map(ch6, LOW_VAL, HIGH_VAL, -1, 3), 0, 2);
+  if(mode == 2){ //switch up - unstuck Mode
+    thr_alpha_inc = 0.25;     // Alpha value when increasing throttle power i.e. moving stick away from center
+    thr_alpha_dec = 0.25;     // Alpha value when decreasing throttle power i.e. moving stick back towards center
+
+    str_alpha_inc = 0.25;     // Alpha value when increasing steering power i.e. moving stick away from center
+    str_alpha_dec = 0.25;     // Alpha value when decreasing steering power i.e. moving stick back towards center
+
+    THR_MIN = -100;
+    THR_MAX = 100;
+    STR_MIN = -100;
+    STR_MAX = 100;
+    STR_MIN_BASE = STR_MIN;
+    STR_MAX_BASE = STR_MAX;
+
+    k_thr = 0.0; //throttle
+    k_str = 0.0; //steering
+    k_str_scalar = 1.0;
+    k_str_base = k_str;
+  }
+  else if( mode == 1){ // switch middle - Inspection mode
+    thr_alpha_inc = 0.99;     // Alpha value when increasing throttle power i.e. moving stick away from center
+    thr_alpha_dec = 0.96;     // Alpha value when decreasing throttle power i.e. moving stick back towards center
+
+    str_alpha_inc = 0.97;     // Alpha value when increasing steering power i.e. moving stick away from center
+    str_alpha_dec = 0.90;     // Alpha value when decreasing steering power i.e. moving stick back towards center
+
+    THR_MIN = -75;
+    THR_MAX = 75;
+    STR_MIN = -60;
+    STR_MAX = 60;
+    STR_MIN_BASE = STR_MIN;
+    STR_MAX_BASE = STR_MAX;
+
+    k_thr = 0.3; //throttle
+    k_str = 0.1; //steering
+    k_str_scalar = 1.0;
+    k_str_base = k_str;
+  }
+  else { // switch down - travel mode
+    thr_alpha_inc = 0.985;     // Alpha value when increasing throttle power i.e. moving stick away from center
+    thr_alpha_dec = 0.95;     // Alpha value when decreasing throttle power i.e. moving stick back towards center
+
+    str_alpha_inc = 0.95;     // Alpha value when increasing steering power i.e. moving stick away from center
+    str_alpha_dec = 0.92;     // Alpha value when decreasing steering power i.e. moving stick back towards center
+
+    THR_MIN = -100;
+    THR_MAX = 100;
+    STR_MIN = -75;
+    STR_MAX = 75;
+    STR_MIN_BASE = STR_MIN;
+    STR_MAX_BASE = STR_MAX;
+
+    k_thr = 0.5; //throttle
+    k_str = 0.15; //steering
+    k_str_scalar = 1.0;
+    k_str_base = k_str;
+  }
+
+  thr = constrain(map(ch2, LOW_VAL, HIGH_VAL, THR_MIN, THR_MAX), THR_MIN, THR_MAX); // throttle
   str = constrain(map(ch1, LOW_VAL, HIGH_VAL, STR_MIN, STR_MAX), STR_MIN, STR_MAX); // steering 
-
-  // mode = constrain(map(ch5, LOW_VAL, HIGH_VAL, -1, 3), 0, 2);
-  // if(mode == 0){ //switch up
-  //   str_alpha = 0.94;
-  // }
-  // else if( mode == 1){
-  //   str_alpha = 0.965;
-  // }
-  // else { // switch down
-  //   str_alpha = 0.99;
-  // }
-
-  brightness_val = constrain(map(ch12, LOW_VAL, HIGH_VAL,-2, 2), -1, 1);
+  brightness_val = constrain(map(ch12, LOW_VAL, HIGH_VAL,2, -2), -1, 1);
 
   // operating mode switch for the WiFi mode
   //operating_mode = constrain(map(ch7, LOW_VAL, HIGH_VAL, -1, 3), 0, 2);   // switch at least three times quickly to go into wifi mode
@@ -178,17 +227,17 @@ void loop() {
   k_str = k_str_base * k_str_scalar;
 
   // math for the exponential throttle curves
-  thr /= 100.0;
+  thr /= THR_MAX;
   str /= STR_MAX;
   thr = (thr * (1 + k_thr*((thr * thr) -1))); // make exponential
   str = (str * (1 + k_str*((str * str) -1)));
-  thr *= 100;
+  thr *= THR_MAX;
   str *= STR_MAX;
-  thr = constrain(thr, -100, 100); // throttle
+  thr = constrain(thr, THR_MIN, THR_MAX); // throttle
 
   // adapt the max steering based on the throttle - at higher throttles get more steering power
-  STR_MIN = constrain(map(abs(thr_smoothed), 0, 100, STR_MIN_BASE, -101), -100, 100);
-  STR_MAX = constrain(map(abs(thr_smoothed), 0, 100, STR_MAX_BASE, 101), -100, 100);
+  STR_MIN = constrain(map(abs(thr_smoothed), 0, THR_MAX, STR_MIN_BASE, THR_MIN), THR_MIN, THR_MAX);
+  STR_MAX = constrain(map(abs(thr_smoothed), 0, THR_MAX, STR_MAX_BASE, THR_MAX), THR_MIN, THR_MAX);
   
   str = constrain(str, STR_MIN, STR_MAX);   // steering
 
@@ -307,7 +356,8 @@ void loop() {
     mot.right_motors(0);
   }
   else{
-    mot.left_motors(thr_smoothed + str_smoothed);
+    mot.left_motors(
+      thr_smoothed + str_smoothed);
     mot.right_motors(thr_smoothed - str_smoothed);
   }
 
