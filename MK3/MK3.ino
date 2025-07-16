@@ -80,9 +80,7 @@ int brightness_val = 0;
 
 int mode = 0;
 // holders for disconnect continuity of behavior
-int ch1holder = 0;
-int ch5holder = 0;
-int ch8holder = 0;
+
 
 // Region around neutral where the sticks don't give an output (no motion)
 const int deadzone_thr = 2;
@@ -146,9 +144,6 @@ void loop() {
   // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   // Read all the raw values from the reciever and store into a variable
   read_receiver(&ch1, &ch2, &ch3, &ch4, &ch5, &ch6, &ch7, &ch8, &ch9, &ch10, &ch11, &ch12); // read values from the Receiver
-  ch1holder = ch1;
-  ch5holder = ch5;
-  ch8holder = ch8;
   // Read sensor values
   voltage_read = analogRead(BATTERY_VOLT_IO);
   mot.sample_values();
@@ -159,8 +154,8 @@ void loop() {
   // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
   // Re-map all the rx into their useful ranges
 
-  thr = constrain(map(ch3, LOW_VAL, HIGH_VAL, -100, 100), -100, 100); // throttle
-  str = constrain(map(ch4, LOW_VAL, HIGH_VAL, STR_MIN, STR_MAX), STR_MIN, STR_MAX); // steering 
+  thr = constrain(map(ch2, LOW_VAL, HIGH_VAL, -100, 100), -100, 100); // throttle
+  str = constrain(map(ch1, LOW_VAL, HIGH_VAL, STR_MIN, STR_MAX), STR_MIN, STR_MAX); // steering 
 
   // mode = constrain(map(ch5, LOW_VAL, HIGH_VAL, -1, 3), 0, 2);
   // if(mode == 0){ //switch up
@@ -173,15 +168,8 @@ void loop() {
   //   str_alpha = 0.99;
   // }
 
-  // headlight toggle
-  //if(failSafe || lostFrame)  headlights = constrain(map(ch5holder, LOW_VAL, HIGH_VAL, -1, 3), 0, 1); else
-  brightness_val = constrain(map(ch7, LOW_VAL, HIGH_VAL,-2, 2), -1, 1);
-  //cam_ctrl = constrain(map(ch10, LOW_VAL, HIGH_VAL, -1, 3), -1, 1); // camera controls
-  //if(cam_ctrl == -1) cam_ctrl = 0;
+  brightness_val = constrain(map(ch12, LOW_VAL, HIGH_VAL,-2, 2), -1, 1);
 
-  //if(cam_ctrl) digitalWrite(CAM_CTRL_IO, LOW); // set the camera control pin or unset it
-  //else digitalWrite(CAM_CTRL_IO, HIGH);
-  
   // operating mode switch for the WiFi mode
   //operating_mode = constrain(map(ch7, LOW_VAL, HIGH_VAL, -1, 3), 0, 2);   // switch at least three times quickly to go into wifi mode
 
@@ -284,10 +272,6 @@ void loop() {
 */
   // ACTION TAKEN BASED VALUES / WRITE TO OUTPUTS
   // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-  //logarithmic lighting
-  //if(failSafe || lostFrame) led2 = log_lighting(ch8holder);
-  //led2 = log_lighting(ch8);
 
   // control the LEDs. Had to inverse the values for some reason.
   //if(headlights) ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, led2); // set the duty cycle for led channel 2
