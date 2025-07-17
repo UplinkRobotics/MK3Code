@@ -64,7 +64,7 @@ const float battery_alpha = 0.99;
 float thr, str;
  
 // Sensor values
-int voltage_read = 0;
+double voltage_read = 0;
 double battery_voltage = 0.0;
 
 // Headlight values
@@ -126,6 +126,10 @@ void loop() {
   read_receiver(&ch1, &ch2, &ch3, &ch4, &ch5, &ch6, &ch7, &ch8, &ch9, &ch10, &ch11, &ch12); // read values from the Receiver
   // Read sensor values
   voltage_read = analogRead(BATTERY_VOLT_IO);
+  // Calculate the voltage based on the analog value
+  battery_voltage = (voltage_read / 386.0) + 2.315; 
+  bat_smoothed = (bat_smoothed * battery_alpha) + (battery_voltage * (1 - battery_alpha));
+  //Serial.println(bat_smoothed);
   mot.sample_values();
   mot.overcurrent_right(); // perform overcurrent testing
   mot.overcurrent_left();
@@ -234,9 +238,6 @@ void loop() {
   thr_smoothed = (thr_smoothed * thr_alpha) + (thr * (1 - thr_alpha));
   str_smoothed = (str_smoothed * str_alpha) + (str * (1 - str_alpha));
  
-  // Calculate the voltage based on the analog value
-  battery_voltage = (voltage_read / 319.5) + 1.6; //TODO: redo this equation
-  bat_smoothed = (bat_smoothed * battery_alpha) + (battery_voltage * (1 - battery_alpha));
 
 // WIFI CODE
 // ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -284,7 +285,7 @@ button_d = constrain(map(ch11, LOW_VAL, HIGH_VAL, -1, 2), 0, 1); // wifi button 
 
   // ACTION TAKEN BASED VALUES / WRITE TO OUTPUTS
   // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-  headlight_mode = constrain(map(ch5, LOW_VAL, HIGH_VAL, 0, 2), 0, 2); 
+  headlight_mode = constrain(map(ch5, LOW_VAL, HIGH_VAL, 0, 2), 0, 2); // TODO: make headlights not be on when controler off
   brightness_val = constrain(map(ch12, LOW_VAL, HIGH_VAL, 20, -20), -10, 10);
   // control the LEDs
   if(headlight_mode == 2) ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0); // turn headlights off
